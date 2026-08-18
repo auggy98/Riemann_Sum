@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integration Explorer (Riemann Sums)</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 0; padding: 10px; background: #f0f2f5; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 98%; max-width: 1200px; margin: auto; height: 98vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        
+        .controls-grid { 
+            display: grid; 
+            grid-template-columns: 1.5fr 1fr 1fr 1.2fr; 
+            gap: 15px; 
+            background: #f8fafc; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        label { font-weight: 600; font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+        input, select { padding: 8px; border: 2px solid #3b82f6; border-radius: 6px; font-size: 0.9rem; background: white; }
+        
+        .plot-container { flex: 1; width: 100%; min-height: 400px; position: relative; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; }
+        #plot-area { width: 100%; height: 100%; }
+        
+        .stats-bar { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr; 
+            background: #1e293b; 
+            color: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            font-family: monospace;
+            font-size: 1rem;
+            margin-top: 10px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .val { color: #38bdf8; font-weight: bold; font-size: 1.1rem; }
+        .error-val { color: #fb923c; }
+        button { background:#64748b; color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="controls-grid">
+        <div class="control-group">
+            <label>Function f(x)</label>
+            <input type="text" id="equation" value="x^2 - 4x + 6" spellcheck="false">
+            <label style="margin-top:5px">Method</label>
+            <select id="method">
+                <option value="left">Left Riemann Sum</option>
+                <option value="right">Right Riemann Sum</option>
+                <option value="mid">Midpoint Rule</option>
+                <option value="trap">Trapezoidal Rule</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>Lower Bound (a) = <span id="a-disp">1.0</span></label>
+            <input type="range" id="a-slider" min="-10" max="10" step="0.1" value="1">
+            <label>Upper Bound (b) = <span id="b-disp">5.0</span></label>
+            <input type="range" id="b-slider" min="-10" max="10" step="0.1" value="5">
+        </div>
+
+        <div class="control-group">
+            <label>Sub-intervals (n) = <span id="n-disp">5</span></label>
+            <input type="range" id="n-slider" min="1" max="100" step="1" value="5">
+            <div style="margin-top:10px; font-size: 0.7rem; color: #64748b;">
+                Δx = <span id="dx-disp">0.800</span>
+            </div>
+        </div>
+
+        <div class="control-group" style="justify-content: center; gap: 10px;">
+            <button onclick="resetView()">Reset Zoom</button>
+            <label style="display:flex; align-items:center; gap:5px; text-transform:none;">
+                <input type="checkbox" id="show-actual" checked> Show Actual Area
+            </label>
+        </div>
+    </div>
+
+    <div class="plot-container">
+        <div id="plot-area"></div>
+    </div>
+
+    <div class="stats-bar">
+        <div>Approx. Area: <span id="approx-val" class="val">--</span></div>
+        <div>Actual Area: <span id="actual-val" class="val" style="color:#a78bfa">--</span></div>
+        <div>Error: <span id="error-val" class="error-val">--</span></div>
+    </div>
+</div>
+
+<script>
+    const plotDiv = document.getElementById('plot-area');
+    let isInitialized = false;
+
+    function calculate() {
+        const eqStr = document.getElementById('equation').value;
+        const a = parseFloat(document.getElementById('a-slider').value);
+        const b = parseFloat(document.getElementById('b-slider').value);
+        const n = parseInt(document.getElementById('n-slider').value);
+        const method = document.getElementById('method').value;
+        const showActual = document.getElementById('show-actual').checked;
+
+        document.getElementById('a-disp').innerText = a.toFixed(1);
+        document.getElementById('b-disp').innerText = b.toFixed(1);
+        document.getElementById('n-disp').innerText = n;
+
+        try {
+            const node = math.parse(eqStr);
+            const f = node.compile();
+            
+            const dx = (b - a) / n;
+            document.getElementById('dx-disp').innerText = Math.abs(dx).toFixed(3);
+
+            let approxSum = 0;
+            const shapes = []; 
+            
+            // Draw Riemann shapes
+            for (let i = 0; i < n; i++) {
+                const x0 = a + i * dx;
+                const x1 = a + (i + 1) * dx;
+                const xm = (x0 + x1) / 2;
+                
+                let yHeight = 0;
+                let path = "";
+
+                if (method === 'left') {
+                    yHeight = f.evaluate({x: x0});
+                    approxSum += yHeight * dx;
+                    path = `M ${x0},0 L ${x0},${yHeight} L ${x1},${yHeight} L ${x1},0 Z`;
+                } else if (method === 'right') {
+                    yHeight = f.evaluate({x: x1});
+                    approxSum += yHeight * dx;
+                    path = `M ${x0},0 L ${x0},${yHeight} L ${x1},${yHeight} L ${x1},0 Z`;
+                } else if (method === 'mid') {
+                    yHeight = f.evaluate({x: xm});
+                    approxSum += yHeight * dx;
+                    path = `M ${x0},0 L ${x0},${yHeight} L ${x1},${yHeight} L ${x1},0 Z`;
+                } else if (method === 'trap') {
+                    const yA = f.evaluate({x: x0});
+                    const yB = f.evaluate({x: x1});
+                    approxSum += ((yA + yB) / 2) * dx;
+                    path = `M ${x0},0 L ${x0},${yA} L ${x1},${yB} L ${x1},0 Z`;
+                }
+
+                shapes.push({
+                    type: 'path', path: path,
+                    fillcolor: 'rgba(59, 130, 246, 0.3)',
+                    line: { color: 'rgb(59, 130, 246)', width: 1.5 }
+                });
+            }
+
+            // --- FIX FOR ACTUAL AREA BOUNDARIES ---
+            // Create a specific array of points that start EXACTLY at 'a' and end EXACTLY at 'b'
+            const actualXs = [];
+            const actualYs = [];
+            const resolution = 100; 
+            for (let j = 0; j <= resolution; j++) {
+                const xVal = a + (j / resolution) * (b - a);
+                actualXs.push(xVal);
+                actualYs.push(f.evaluate({x: xVal}));
+            }
+
+            // High-precision Actual Area calculation (Numerical Integration)
+            let actualArea = 0;
+            const steps = 1000;
+            const stepSize = (b - a) / steps;
+            for(let i=0; i<steps; i++) {
+                actualArea += f.evaluate({x: a + (i + 0.5) * stepSize}) * stepSize;
+            }
+
+            // Update display
+            document.getElementById('approx-val').innerText = Math.abs(approxSum).toFixed(4);
+            document.getElementById('actual-val').innerText = Math.abs(actualArea).toFixed(4);
+            document.getElementById('error-val').innerText = Math.abs(actualArea - approxSum).toFixed(4);
+
+            // Curve generation (Full Background Curve)
+            const xMin = Math.min(a, b) - 2;
+            const xMax = Math.max(a, b) + 2;
+            const curveXs = [], curveYs = [];
+            for (let x = xMin; x <= xMax; x += (xMax - xMin) / 200) {
+                curveXs.push(x);
+                try { curveYs.push(f.evaluate({x})); } catch(e) { curveYs.push(null); }
+            }
+
+            const data = [
+                {
+                    x: actualXs,
+                    y: actualYs,
+                    fill: showActual ? 'tozeroy' : 'none',
+                    type: 'scatter', mode: 'none',
+                    fillcolor: 'rgba(167, 139, 250, 0.25)',
+                    name: 'Actual Area', hoverinfo: 'none'
+                },
+                {
+                    x: curveXs, y: curveYs,
+                    name: 'f(x)',
+                    line: { color: '#1e293b', width: 2.5 },
+                    hoverinfo: 'x+y'
+                }
+            ];
+
+            const layout = {
+                xaxis: { zeroline: true, gridcolor: '#f1f5f9' },
+                yaxis: { zeroline: true, gridcolor: '#f1f5f9' },
+                shapes: shapes,
+                margin: { t: 20, b: 40, l: 50, r: 20 },
+                legend: { orientation: 'h', y: 1.1 },
+                dragmode: 'pan',
+                hovermode: 'closest'
+            };
+
+            if (!isInitialized) {
+                Plotly.newPlot(plotDiv, data, layout, { responsive: true, scrollZoom: true, displayModeBar: false });
+                isInitialized = true;
+            } else {
+                Plotly.react(plotDiv, data, layout);
+            }
+
+        } catch (e) {
+            console.warn(e);
+        }
+    }
+
+    function resetView() { isInitialized = false; calculate(); }
+
+    ['equation', 'a-slider', 'b-slider', 'n-slider', 'method', 'show-actual'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calculate);
+    });
+
+    window.addEventListener('load', () => setTimeout(calculate, 100));
+</script>
+</body>
+</html>
