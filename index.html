@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Integration Explorer (Riemann Sums)</title>
+    <title>Stable Integration Explorer</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
     
     <style>
         body { font-family: system-ui, sans-serif; margin: 0; padding: 10px; background: #f0f2f5; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
-        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 98%; max-width: 1200px; margin: auto; height: 98vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 98%; max-width: 1300px; margin: auto; height: 98vh; display: flex; flex-direction: column; box-sizing: border-box; }
         
         .controls-grid { 
             display: grid; 
-            grid-template-columns: 1.5fr 1fr 1fr 1.2fr; 
+            grid-template-columns: 1.2fr 1.5fr 1fr 1fr; 
             gap: 15px; 
             background: #f8fafc; 
             padding: 15px; 
@@ -22,11 +22,13 @@
             margin-bottom: 10px;
             flex-shrink: 0;
         }
-        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
         label { font-weight: 600; font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
-        input, select { padding: 8px; border: 2px solid #3b82f6; border-radius: 6px; font-size: 0.9rem; background: white; }
-        
-        .plot-container { flex: 1; width: 100%; min-height: 400px; position: relative; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; }
+        input, select { padding: 6px; border: 2px solid #3b82f6; border-radius: 6px; font-size: 0.9rem; background: white; }
+        .bound-input-row { display: flex; align-items: center; gap: 8px; }
+        .num-input { width: 65px; text-align: center; font-weight: bold; }
+
+        .plot-container { flex: 1; width: 100%; min-height: 350px; position: relative; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; }
         #plot-area { width: 100%; height: 100%; }
         
         .stats-bar { 
@@ -43,8 +45,9 @@
             flex-shrink: 0;
         }
         .val { color: #38bdf8; font-weight: bold; font-size: 1.1rem; }
-        .error-val { color: #fb923c; }
-        button { background:#64748b; color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold; }
+        .neg-val { color: #fb7185; }
+        .btn-focus { background:#3b82f6; color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold; }
+        .btn-focus:hover { background: #2563eb; }
     </style>
 </head>
 <body>
@@ -53,36 +56,43 @@
     <div class="controls-grid">
         <div class="control-group">
             <label>Function f(x)</label>
-            <input type="text" id="equation" value="x^2 - 4x + 6" spellcheck="false">
+            <input type="text" id="equation" value="0.1x^2 - 3" spellcheck="false">
             <label style="margin-top:5px">Method</label>
             <select id="method">
                 <option value="left">Left Riemann Sum</option>
                 <option value="right">Right Riemann Sum</option>
-                <option value="mid">Midpoint Rule</option>
+                <option value="mid" selected>Midpoint Rule</option>
                 <option value="trap">Trapezoidal Rule</option>
             </select>
         </div>
         
         <div class="control-group">
-            <label>Lower Bound (a) = <span id="a-disp">1.0</span></label>
-            <input type="range" id="a-slider" min="-10" max="10" step="0.1" value="1">
-            <label>Upper Bound (b) = <span id="b-disp">5.0</span></label>
-            <input type="range" id="b-slider" min="-10" max="10" step="0.1" value="5">
-        </div>
-
-        <div class="control-group">
-            <label>Sub-intervals (n) = <span id="n-disp">5</span></label>
-            <input type="range" id="n-slider" min="1" max="100" step="1" value="5">
-            <div style="margin-top:10px; font-size: 0.7rem; color: #64748b;">
-                Δx = <span id="dx-disp">0.800</span>
+            <label>Lower Bound (a)</label>
+            <div class="bound-input-row">
+                <input type="range" id="a-slider" min="-100" max="100" step="0.5" value="-5">
+                <input type="number" id="a-num" class="num-input" value="-5">
+            </div>
+            <label>Upper Bound (b)</label>
+            <div class="bound-input-row">
+                <input type="range" id="b-slider" min="-100" max="100" step="0.5" value="5">
+                <input type="number" id="b-num" class="num-input" value="5">
             </div>
         </div>
 
-        <div class="control-group" style="justify-content: center; gap: 10px;">
-            <button onclick="resetView()">Reset Zoom</button>
-            <label style="display:flex; align-items:center; gap:5px; text-transform:none;">
+        <div class="control-group">
+            <label>Sub-intervals (n) = <span id="n-disp">10</span></label>
+            <input type="range" id="n-slider" min="1" max="500" step="1" value="10">
+            <div style="margin-top:10px; font-size: 0.7rem; color: #64748b;">
+                Δx = <span id="dx-disp">1.000</span>
+            </div>
+        </div>
+
+        <div class="control-group" style="justify-content: center; gap: 8px;">
+            <button class="btn-focus" onclick="render('focus')">Fit View to Bounds</button>
+            <label style="display:flex; align-items:center; gap:5px; text-transform:none; font-size: 0.75rem; cursor:pointer;">
                 <input type="checkbox" id="show-actual" checked> Show Actual Area
             </label>
+            <div id="dir-msg" style="font-size: 0.65rem; color: #fb7185; font-weight: bold; visibility: hidden;">Reverse Integration (b < a)</div>
         </div>
     </div>
 
@@ -91,9 +101,9 @@
     </div>
 
     <div class="stats-bar">
-        <div>Approx. Area: <span id="approx-val" class="val">--</span></div>
+        <div>Approx Area: <span id="approx-val" class="val">--</span></div>
         <div>Actual Area: <span id="actual-val" class="val" style="color:#a78bfa">--</span></div>
-        <div>Error: <span id="error-val" class="error-val">--</span></div>
+        <div>Error: <span id="error-val" style="color:#fb923c">--</span></div>
     </div>
 </div>
 
@@ -101,142 +111,139 @@
     const plotDiv = document.getElementById('plot-area');
     let isInitialized = false;
 
-    function calculate() {
+    // Helper to sync Slider and Number inputs
+    function sync(sId, nId) {
+        const s = document.getElementById(sId), n = document.getElementById(nId);
+        s.addEventListener('input', () => { n.value = s.value; render('keep'); });
+        n.addEventListener('input', () => { s.value = n.value; render('keep'); });
+    }
+    sync('a-slider', 'a-num'); sync('b-slider', 'b-num');
+
+    function render(mode = "keep") {
         const eqStr = document.getElementById('equation').value;
-        const a = parseFloat(document.getElementById('a-slider').value);
-        const b = parseFloat(document.getElementById('b-slider').value);
+        const a = parseFloat(document.getElementById('a-num').value);
+        const b = parseFloat(document.getElementById('b-num').value);
         const n = parseInt(document.getElementById('n-slider').value);
         const method = document.getElementById('method').value;
         const showActual = document.getElementById('show-actual').checked;
 
-        document.getElementById('a-disp').innerText = a.toFixed(1);
-        document.getElementById('b-disp').innerText = b.toFixed(1);
         document.getElementById('n-disp').innerText = n;
+        document.getElementById('dir-msg').style.visibility = (b < a) ? 'visible' : 'hidden';
 
         try {
             const node = math.parse(eqStr);
             const f = node.compile();
-            
             const dx = (b - a) / n;
-            document.getElementById('dx-disp').innerText = Math.abs(dx).toFixed(3);
+            document.getElementById('dx-disp').innerText = dx.toFixed(3);
 
+            // 1. Determine the View Range (Where is the camera?)
+            let xView, yView;
+            if (mode === "focus" || !isInitialized) {
+                xView = [Math.min(a, b) - 2, Math.max(a, b) + 2];
+                // Auto-scale Y for focus mode
+                const samples = [];
+                for(let x=xView[0]; x<=xView[1]; x+=(xView[1]-xView[0])/20) samples.push(f.evaluate({x}));
+                const minYSamp = Math.min(...samples), maxYSamp = Math.max(...samples);
+                yView = [minYSamp - 2, maxYSamp + 2];
+            } else {
+                // Keep exactly what the user is currently seeing
+                xView = plotDiv.layout.xaxis.range;
+                yView = plotDiv.layout.yaxis.range;
+            }
+
+            // 2. Math Calculations
             let approxSum = 0;
             const shapes = []; 
-            
-            // Draw Riemann shapes
             for (let i = 0; i < n; i++) {
                 const x0 = a + i * dx;
                 const x1 = a + (i + 1) * dx;
-                const xm = (x0 + x1) / 2;
-                
-                let yHeight = 0;
+                let yh = 0;
                 let path = "";
 
-                if (method === 'left') {
-                    yHeight = f.evaluate({x: x0});
-                    approxSum += yHeight * dx;
-                    path = `M ${x0},0 L ${x0},${yHeight} L ${x1},${yHeight} L ${x1},0 Z`;
-                } else if (method === 'right') {
-                    yHeight = f.evaluate({x: x1});
-                    approxSum += yHeight * dx;
-                    path = `M ${x0},0 L ${x0},${yHeight} L ${x1},${yHeight} L ${x1},0 Z`;
-                } else if (method === 'mid') {
-                    yHeight = f.evaluate({x: xm});
-                    approxSum += yHeight * dx;
-                    path = `M ${x0},0 L ${x0},${yHeight} L ${x1},${yHeight} L ${x1},0 Z`;
-                } else if (method === 'trap') {
-                    const yA = f.evaluate({x: x0});
-                    const yB = f.evaluate({x: x1});
-                    approxSum += ((yA + yB) / 2) * dx;
-                    path = `M ${x0},0 L ${x0},${yA} L ${x1},${yB} L ${x1},0 Z`;
+                if (method === 'left') yh = f.evaluate({x: x0});
+                else if (method === 'right') yh = f.evaluate({x: x1});
+                else if (method === 'mid') yh = f.evaluate({x: (x0 + x1) / 2});
+                
+                if (method === 'trap') {
+                    const y0 = f.evaluate({x: x0}), y1 = f.evaluate({x: x1});
+                    approxSum += ((y0 + y1) / 2) * dx;
+                    path = `M ${x0},0 L ${x0},${y0} L ${x1},${y1} L ${x1},0 Z`;
+                } else {
+                    approxSum += yh * dx;
+                    path = `M ${x0},0 L ${x0},${yh} L ${x1},${yh} L ${x1},0 Z`;
                 }
 
                 shapes.push({
                     type: 'path', path: path,
-                    fillcolor: 'rgba(59, 130, 246, 0.3)',
-                    line: { color: 'rgb(59, 130, 246)', width: 1.5 }
+                    fillcolor: (dx >= 0) ? 'rgba(59, 130, 246, 0.25)' : 'rgba(251, 113, 133, 0.25)',
+                    line: { color: (dx >= 0) ? '#3b82f6' : '#fb7185', width: 1 }
                 });
             }
 
-            // --- FIX FOR ACTUAL AREA BOUNDARIES ---
-            // Create a specific array of points that start EXACTLY at 'a' and end EXACTLY at 'b'
-            const actualXs = [];
-            const actualYs = [];
-            const resolution = 100; 
-            for (let j = 0; j <= resolution; j++) {
-                const xVal = a + (j / resolution) * (b - a);
-                actualXs.push(xVal);
-                actualYs.push(f.evaluate({x: xVal}));
-            }
-
-            // High-precision Actual Area calculation (Numerical Integration)
             let actualArea = 0;
             const steps = 1000;
             const stepSize = (b - a) / steps;
-            for(let i=0; i<steps; i++) {
-                actualArea += f.evaluate({x: a + (i + 0.5) * stepSize}) * stepSize;
-            }
+            for(let i=0; i<steps; i++) actualArea += f.evaluate({x: a + (i + 0.5) * stepSize}) * stepSize;
 
-            // Update display
-            document.getElementById('approx-val').innerText = Math.abs(approxSum).toFixed(4);
-            document.getElementById('actual-val').innerText = Math.abs(actualArea).toFixed(4);
+            // 3. UI Update
+            document.getElementById('approx-val').innerText = approxSum.toFixed(4);
+            document.getElementById('actual-val').innerText = actualArea.toFixed(4);
             document.getElementById('error-val').innerText = Math.abs(actualArea - approxSum).toFixed(4);
 
-            // Curve generation (Full Background Curve)
-            const xMin = Math.min(a, b) - 2;
-            const xMax = Math.max(a, b) + 2;
+            // 4. Trace Data
+            // Draw the function curve across the WHOLE visible screen plus margin
             const curveXs = [], curveYs = [];
-            for (let x = xMin; x <= xMax; x += (xMax - xMin) / 200) {
+            const margin = (xView[1] - xView[0]);
+            for (let x = xView[0] - margin; x <= xView[1] + margin; x += (margin*3)/300) {
                 curveXs.push(x);
                 try { curveYs.push(f.evaluate({x})); } catch(e) { curveYs.push(null); }
             }
 
+            const fillXs = [], fillYs = [];
+            for (let j = 0; j <= 100; j++) {
+                const xv = a + (j/100)*(b-a);
+                fillXs.push(xv); fillYs.push(f.evaluate({x: xv}));
+            }
+
             const data = [
                 {
-                    x: actualXs,
-                    y: actualYs,
-                    fill: showActual ? 'tozeroy' : 'none',
+                    x: fillXs, y: fillYs, fill: showActual ? 'tozeroy' : 'none',
                     type: 'scatter', mode: 'none',
-                    fillcolor: 'rgba(167, 139, 250, 0.25)',
+                    fillcolor: (b >= a) ? 'rgba(167, 139, 250, 0.2)' : 'rgba(251, 113, 133, 0.15)',
                     name: 'Actual Area', hoverinfo: 'none'
                 },
                 {
-                    x: curveXs, y: curveYs,
-                    name: 'f(x)',
-                    line: { color: '#1e293b', width: 2.5 },
-                    hoverinfo: 'x+y'
+                    x: curveXs, y: curveYs, name: 'f(x)', 
+                    line: { color: '#1e293b', width: 2.5 }, hoverinfo: 'x+y'
                 }
             ];
 
             const layout = {
-                xaxis: { zeroline: true, gridcolor: '#f1f5f9' },
-                yaxis: { zeroline: true, gridcolor: '#f1f5f9' },
+                xaxis: { range: xView, zeroline: true, gridcolor: '#f1f5f9' },
+                yaxis: { range: yView, zeroline: true, gridcolor: '#f1f5f9' },
                 shapes: shapes,
                 margin: { t: 20, b: 40, l: 50, r: 20 },
                 legend: { orientation: 'h', y: 1.1 },
-                dragmode: 'pan',
-                hovermode: 'closest'
+                dragmode: 'pan'
             };
 
             if (!isInitialized) {
                 Plotly.newPlot(plotDiv, data, layout, { responsive: true, scrollZoom: true, displayModeBar: false });
                 isInitialized = true;
+                // Hook into zoom/pan events to trigger a curve extension if needed
+                plotDiv.on('plotly_relayout', () => render('keep'));
             } else {
                 Plotly.react(plotDiv, data, layout);
             }
 
-        } catch (e) {
-            console.warn(e);
-        }
+        } catch (e) { console.error(e); }
     }
 
-    function resetView() { isInitialized = false; calculate(); }
-
-    ['equation', 'a-slider', 'b-slider', 'n-slider', 'method', 'show-actual'].forEach(id => {
-        document.getElementById(id).addEventListener('input', calculate);
+    ['equation', 'n-slider', 'method', 'show-actual'].forEach(id => {
+        document.getElementById(id).addEventListener('input', () => render('keep'));
     });
 
-    window.addEventListener('load', () => setTimeout(calculate, 100));
+    window.addEventListener('load', () => setTimeout(() => render('focus'), 100));
 </script>
 </body>
 </html>
