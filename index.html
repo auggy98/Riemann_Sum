@@ -77,12 +77,12 @@
         </div>
         
         <div class="control-group">
-            <label>Lower Bound (a)</label>
+            <label>lower limit (a)</label>
             <div class="bound-input-row">
                 <input type="range" id="a-slider" min="-100" max="100" step="0.5" value="0">
                 <input type="number" id="a-num" class="num-input" value="0">
             </div>
-            <label>Upper Bound (b)</label>
+            <label>upper limit (b)</label>
             <div class="bound-input-row">
                 <input type="range" id="b-slider" min="-100" max="100" step="0.5" value="5">
                 <input type="number" id="b-num" class="num-input" value="5">
@@ -101,7 +101,7 @@
         </div>
 
         <div class="control-group" style="justify-content: center; gap: 8px;">
-            <button class="btn-focus" onclick="render('focus')">Fit View to Bounds</button>
+            <button class="btn-focus" onclick="render('focus')">Fit View to limits</button>
             <label style="display:flex; align-items:center; gap:5px; text-transform:none; font-size: 0.75rem; cursor:pointer;">
                 <input type="checkbox" id="show-actual" checked> Show Actual Area
             </label>
