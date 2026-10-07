@@ -26,7 +26,7 @@
             flex-shrink: 0;
         }
         .control-group { display: flex; flex-direction: column; gap: 6px; }
-        label { font-weight: 600; font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+        label { font-weight: 600; font-size: 0.7rem; color: #64748b; }
         input, select { padding: 6px; border: 2px solid #3b82f6; border-radius: 6px; font-size: 0.9rem; background: white; }
         .bound-input-row { display: flex; align-items: center; gap: 8px; }
         .num-input { width: 65px; text-align: center; font-weight: bold; }
@@ -66,9 +66,9 @@
 
     <div class="controls-grid">
         <div class="control-group">
-            <label>Function f(x)</label>
+            <label>FUNCTION f(x)</label>
             <input type="text" id="equation" value="3x^2" spellcheck="false">
-            <label style="margin-top:5px">Method</label>
+            <label style="margin-top:5px">METHOD</label>
             <select id="method">
                 <option value="left" selected>Left Riemann Sum</option>
                 <option value="right">Right Riemann Sum</option>
@@ -78,12 +78,12 @@
         </div>
         
         <div class="control-group">
-            <label>lower limit (a)</label>
+            <label>LOWER BOUND (a)</label>
             <div class="bound-input-row">
                 <input type="range" id="a-slider" min="-100" max="100" step="0.5" value="0">
                 <input type="number" id="a-num" class="num-input" value="0">
             </div>
-            <label>upper limit (b)</label>
+            <label>UPPER BOUND (b)</label>
             <div class="bound-input-row">
                 <input type="range" id="b-slider" min="-100" max="100" step="0.5" value="5">
                 <input type="number" id="b-num" class="num-input" value="5">
@@ -91,7 +91,7 @@
         </div>
 
         <div class="control-group">
-            <label>Sub-intervals (n)</label>
+            <label>SUB-INTERVAL (n)</label>
             <div class="bound-input-row">
                 <input type="range" id="n-slider" min="1" max="500" step="1" value="5">
                 <input type="number" id="n-num" class="num-input" value="5">
@@ -103,6 +103,9 @@
 
         <div class="control-group" style="justify-content: center; gap: 8px;">
             <button class="btn-focus" onclick="render('focus')">Fit View to limits</button>
+            <label style="display:flex; align-items:center; gap:5px; text-transform:none; font-size: 0.75rem; cursor:pointer;">
+                <input type="checkbox" id="show-approx" checked> Show Approx Area
+            </label>
             <label style="display:flex; align-items:center; gap:5px; text-transform:none; font-size: 0.75rem; cursor:pointer;">
                 <input type="checkbox" id="show-actual" checked> Show Actual Area
             </label>
@@ -143,6 +146,7 @@
         const n = parseInt(document.getElementById('n-num').value);
         const method = document.getElementById('method').value;
         const showActual = document.getElementById('show-actual').checked;
+        const showApprox = document.getElementById('show-approx').checked;
 
         document.getElementById('dir-msg').style.visibility = (b < a) ? 'visible' : 'hidden';
 
@@ -189,11 +193,13 @@
                     path = `M ${x0},0 L ${x0},${yh} L ${x1},${yh} L ${x1},0 Z`;
                 }
 
-                shapes.push({
-                    type: 'path', path: path,
-                    fillcolor: (dx >= 0) ? 'rgba(59, 130, 246, 0.25)' : 'rgba(251, 113, 133, 0.25)',
-                    line: { color: (dx >= 0) ? '#3b82f6' : '#fb7185', width: 1 }
-                });
+                if (showApprox) {
+                    shapes.push({
+                        type: 'path', path: path,
+                        fillcolor: (dx >= 0) ? 'rgba(59, 130, 246, 0.25)' : 'rgba(251, 113, 133, 0.25)',
+                        line: { color: (dx >= 0) ? '#3b82f6' : '#fb7185', width: 1 }
+                    });
+                }
             }
 
             let actualArea = 0;
@@ -289,7 +295,7 @@
         } catch (e) { console.error(e); }
     }
 
-    ['equation', 'method', 'show-actual'].forEach(id => {
+    ['equation', 'method', 'show-actual', 'show-approx'].forEach(id => {
         document.getElementById(id).addEventListener('input', () => render('keep'));
     });
 
